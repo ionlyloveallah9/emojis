@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0d0f">
+<title>PNGs</title>
+<style>
+:root{--bg:#0d0d0f;--bar:#101013;--line:#26262c;--text:#f2f2f4;--dim:#8b8b95;--accent:#7c5cff;--nav-h:64px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:#050506;color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+
+/* Fixed mobile-width app shell: same look on every device, bottom bar can never scroll away */
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh;width:100%;max-width:480px;margin:0 auto;background:var(--bg);position:relative;overflow:hidden}
+@media(min-width:481px){#app{border-left:1px solid var(--line);border-right:1px solid var(--line)}}
+
+header{flex:0 0 auto;display:flex;align-items:center;height:calc(env(safe-area-inset-top,0px) + 52px);padding:env(safe-area-inset-top,0px) 12px 0;background:var(--bar);border-bottom:1px solid var(--line)}
+.back{display:inline-flex;align-items:center;gap:6px;padding:8px 12px 8px 8px;margin-left:-4px;border-radius:999px;color:var(--text);text-decoration:none;font-size:18px;font-weight:600}
+.back svg{width:23px;height:23px}
+.back:active{background:rgba(255,255,255,.1)}
+
+#scroller{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:8px 6px 16px}
+#grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px}
+.item{position:relative;aspect-ratio:1;cursor:pointer}
+.item img{width:100%;height:100%;object-fit:contain;padding:16px;display:block;-webkit-user-drag:none;user-select:none;-webkit-touch-callout:none}
+.dl{position:absolute;right:4px;bottom:4px;width:26px;height:26px;border:0;border-radius:50%;background:rgba(255,255,255,.14);color:#fff;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
+.dl svg{width:14px;height:14px}
+.dl:active,.item:active .dl{background:var(--accent)}
+#end{height:1px}
+
+nav{flex:0 0 auto;background:var(--bar);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+#tabs{display:flex;height:var(--nav-h);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+#tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;min-width:68px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:0;color:var(--dim);font:inherit;font-size:10.5px;cursor:pointer;position:relative;padding:0 8px}
+.tab img{width:26px;height:26px;object-fit:contain;filter:grayscale(0.7);opacity:.55;transition:.15s}
+.tab.on{color:var(--text)}
+.tab.on img{filter:none;opacity:1;transform:scale(1.1)}
+.tab.on::after{content:"";position:absolute;top:0;left:22%;right:22%;height:2px;border-radius:0 0 2px 2px;background:var(--accent)}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+  <a class="back" href="http://naiveextra.com" target="_self" aria-label="Go back">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+    Back
+  </a>
+</header>
+
+<main id="scroller"><div id="grid"></div><div id="end"></div></main>
+<nav><div id="tabs"></div></nav>
+</div>
+
+<script src="files.js"></script>
+<script>
+(function(){
+  var TABS = window.TABS || [], grid = document.getElementById('grid'), tabsEl = document.getElementById('tabs'), end = document.getElementById('end'), scroller = document.getElementById('scroller');
+  var CHUNK = 60, shown = 0, files = [], cur = null;
+  var ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>';
+  function src(n){ return 'png/' + encodeURIComponent(n); }
+
+  function save(name){
+    var url = src(name);
+    function go(href){ var a=document.createElement('a'); a.href=href; a.download=name; document.body.appendChild(a); a.click(); a.remove(); return a; }
+    fetch(url).then(function(r){ return r.blob(); }).then(function(b){
+      var u = URL.createObjectURL(b); go(u); setTimeout(function(){ URL.revokeObjectURL(u); }, 2000);
+    }).catch(function(){ go(url); });
+  }
+
+  // Tap vs scroll: only a short, still touch/click counts as a tap
+  var sx=0, sy=0, st=0, moved=false;
+  grid.addEventListener('pointerdown', function(e){ sx=e.clientX; sy=e.clientY; st=Date.now(); moved=false; });
+  grid.addEventListener('pointermove', function(e){ if(Math.abs(e.clientX-sx)>8 || Math.abs(e.clientY-sy)>8) moved=true; });
+  grid.addEventListener('pointercancel', function(){ moved=true; });
+  grid.addEventListener('click', function(e){
+    var item = e.target.closest('.item');
+    if(!item) return;
+    if(moved || Date.now()-st > 600){ moved=false; return; }
+    save(item.dataset.name);
+  });
+
+  function render(){
+    var stop = Math.min(shown + CHUNK, files.length), frag = document.createDocumentFragment();
+    for(var i=shown;i<stop;i++){
+      var d = document.createElement('div'); d.className='item'; d.dataset.name=files[i];
+      var img = new Image(); img.loading='lazy'; img.decoding='async'; img.alt=''; img.draggable=false; img.src=src(files[i]);
+      var b = document.createElement('button'); b.className='dl'; b.type='button'; b.setAttribute('aria-label','Download'); b.innerHTML=ICON;
+      d.appendChild(img); d.appendChild(b); frag.appendChild(d);
+    }
+    grid.appendChild(frag); shown = stop;
+    io.unobserve(end); if(shown < files.length) io.observe(end);
+  }
+  var io = new IntersectionObserver(function(en){ if(en[0].isIntersecting && shown < files.length) render(); }, {root:scroller, rootMargin:'1200px'});
+
+  function open(id, fromHash){
+    var t = TABS.filter(function(x){ return x.id===id; })[0] || TABS[0];
+    if(!t) return;
+    cur = t.id; files = t.files; shown = 0; grid.innerHTML = '';
+    scroller.scrollTop = 0;
+    [].forEach.call(tabsEl.children, function(b){
+      var on = b.dataset.id===cur; b.classList.toggle('on', on);
+      if(on) b.scrollIntoView({inline:'center', block:'nearest'});
+    });
+    if(!fromHash) { try{ history.replaceState(null,'','#'+cur); }catch(e){} }
+    render();
+  }
+
+  TABS.forEach(function(t){
+    var b = document.createElement('button'); b.className='tab'; b.type='button'; b.dataset.id=t.id; b.setAttribute('aria-label', t.label);
+    var im = new Image(); im.src = src(t.icon); im.alt=''; im.draggable=false;
+    var sp = document.createElement('span'); sp.textContent = t.label;
+    b.appendChild(im); b.appendChild(sp);
+    b.addEventListener('click', function(){ if(cur!==t.id) open(t.id); });
+    tabsEl.appendChild(b);
+  });
+  window.addEventListener('hashchange', function(){ var h=location.hash.slice(1); if(h && h!==cur) open(h,true); });
+  open(location.hash.slice(1) || (TABS[0] && TABS[0].id), true);
+})();
+</script>
+</body>
+</html>
